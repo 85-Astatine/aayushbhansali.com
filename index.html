@@ -468,14 +468,22 @@ function place(o){o.g.setAttribute('transform',`translate(${o.x} ${o.y}) rotate(
 function stackTiles(){tiles.forEach((t,i)=>{if(t===held)return;t.x=ROW0+i*ROWGAP;t.y=DESK-TH;t.r=0;place(t)})}
 function initTiles(){$('blocks').innerHTML='';tiles=PAGES.map(makeTile);stackTiles()}
 const setA=(id,o)=>{const el=$(id);for(const k in o)el.setAttribute(k,o[k])};
+const WRIST_LIM=100*Math.PI/180;
 const deg=r=>Math.round(r*180/Math.PI),wrap=r=>Math.atan2(Math.sin(r),Math.cos(r));
 function drawArm(){
   const c=Math.max(.45,Math.cos(A.yaw));                         // J1: turning the base foreshortens the arm
   const tr=(A.x-SH.x)/c,tz=A.y-SH.y;                              // tip in the arm's own plane
-  let wr=tr-L3*Math.cos(A.phi),wz=tz-L3*Math.sin(A.phi);          // wrist centre, from J4's approach angle
-  let d=Math.hypot(wr,wz);const mx=L1+L2-1;if(d>mx){wr*=mx/d;wz*=mx/d;d=mx}if(d<30)d=30;
-  const a=Math.atan2(wz,wr),b=Math.acos(clamp((L1*L1+d*d-L2*L2)/(2*L1*d),-1,1));
-  let e1=[L1*Math.cos(a-b),L1*Math.sin(a-b)],e2=[L1*Math.cos(a+b),L1*Math.sin(a+b)];const E=e1[1]<e2[1]?e1:e2;  // elbow up
+  const solve=phi=>{
+    let wr=tr-L3*Math.cos(phi),wz=tz-L3*Math.sin(phi);              // wrist centre, from J4's approach angle
+    let d=Math.hypot(wr,wz);const mx=L1+L2-1;if(d>mx){wr*=mx/d;wz*=mx/d;d=mx}if(d<30)d=30;
+    const a=Math.atan2(wz,wr),b=Math.acos(clamp((L1*L1+d*d-L2*L2)/(2*L1*d),-1,1));
+    const e1=[L1*Math.cos(a-b),L1*Math.sin(a-b)],e2=[L1*Math.cos(a+b),L1*Math.sin(a+b)];
+    return{wr,wz,E:e1[1]<e2[1]?e1:e2};                             // elbow up
+  };
+  let{wr,wz,E}=solve(A.phi);
+  // J4 joint limit: the wrist can't fold back over the forearm
+  const fa=Math.atan2(wz-E[1],wr-E[0]),j4=wrap(A.phi-fa);
+  if(Math.abs(j4)>WRIST_LIM){A.phi=fa+Math.sign(j4)*WRIST_LIM;({wr,wz,E}=solve(A.phi))}
   const T=[wr+L3*Math.cos(A.phi),wz+L3*Math.sin(A.phi)];
   const S=([r,z])=>[SH.x+r*c,SH.y+z];
   const pE=S(E),pW=S([wr,wz]),pT=S(T);
@@ -494,7 +502,7 @@ function drawArm(){
 }
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function go(x,y,pose={},speed=1.5,ez=ease){return new Promise(res=>{
-  const f={...A},to={x,y,phi:A.phi,yaw:A.yaw,roll:A.roll,fing:A.fing,...pose};
+  const f={...A},to={x,y,phi:A.phi,yaw:A.yaw,roll:A.roll,fing:A.fing,...pose};to.phi=f.phi+wrap(to.phi-f.phi);  // turn the short way
   const ms=Math.max(140,Math.hypot(x-f.x,y-f.y)/speed,Math.abs(to.phi-f.phi)*260),t0=performance.now();
   (function st(now){const t=clamp((now-t0)/ms,0,1),k=ez(t);for(const key in to)A[key]=f[key]+(to[key]-f[key])*k;drawArm();t<1?requestAnimationFrame(st):res()})(t0)})}
 let lastJ='';
@@ -505,8 +513,9 @@ function armFollow(){
   let tx=430,ty=135;
   if(!idle){const m=$('arm').getScreenCTM();if(!m)return;const p=new DOMPoint(mouse.x,mouse.y).matrixTransform(m.inverse());tx=clamp(p.x,90,470);ty=clamp(p.y,-10,215)}
   const toward=Math.atan2(ty-SH.y,tx-SH.x);
-  const T={x:tx,y:ty,phi:idle?Math.PI/2:(Math.PI/2+toward)/2,yaw:(idle?.45:.25)*Math.sin(now/(idle?2600:1900)),roll:(idle?.9:.5)*Math.sin(now/1700),fing:OPEN};
-  const k=REDUCE?1:.08;for(const key in T)A[key]+=(T[key]-A[key])*k;
+  const reachOut=Math.atan2(1+Math.sin(toward),Math.cos(toward));   // halfway between 'down' and 'toward the cursor', as vectors
+  const T={x:tx,y:ty,phi:idle?Math.PI/2:reachOut,yaw:(idle?.45:.25)*Math.sin(now/(idle?2600:1900)),roll:(idle?.9:.5)*Math.sin(now/1700),fing:OPEN};
+  const k=REDUCE?1:.08;for(const key in T)A[key]+=(key==='phi'?wrap(T.phi-A.phi):T[key]-A[key])*k;
   drawArm();showJoints();
 }
 
