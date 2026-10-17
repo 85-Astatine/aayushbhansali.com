@@ -100,6 +100,8 @@ section.stop{min-height:110vh;display:flex;align-items:center;padding:0 6vw}
 #arm .tile:hover rect{fill:var(--accent)}
 .deskhint{font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;padding:4px 6px 0}
 #joints{font-variant-numeric:tabular-nums;white-space:pre}
+#arm .jl text{fill:var(--muted);opacity:0;transition:opacity .25s}
+#armwrap:hover #arm .jl text,#arm.showjl .jl text{opacity:1}
 
 /* senses */
 .senses{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
@@ -265,17 +267,22 @@ section.stop{min-height:110vh;display:flex;align-items:center;padding:0 6vw}
           <g id="blocks"></g>
           <rect x="492" y="244" width="56" height="18" rx="4" fill="#2a2d33"/>
           <ellipse cx="520" cy="243" rx="30" ry="7" fill="#3a3d44"/>
-          <circle id="yawdot" r="2.6" fill="#d9622b"/>
-          <rect x="510" y="214" width="20" height="30" rx="3" fill="#3a3d44"/>
+          <g id="ticks"></g>
+          <rect id="colside" y="214" height="30" fill="#2a2d33"/>
+          <rect id="col" y="214" height="30" rx="2" fill="#4a4d55"/>
           <line id="l1" stroke="#d9622b" stroke-width="15" stroke-linecap="round"/>
           <line id="l2" stroke="#e2814f" stroke-width="11" stroke-linecap="round"/>
           <line id="l3" stroke="#2a2d33" stroke-width="7" stroke-linecap="round"/>
-          <circle cx="520" cy="214" r="11" fill="#2a2d33"/>
-          <circle id="j2" r="8" fill="#2a2d33"/>
-          <ellipse id="j4" rx="6" ry="6" fill="#d9622b" stroke="#2a2d33" stroke-width="2"/>
+          <!-- motor hubs: each pitch joint has a tick that turns with its link -->
+          <circle cx="520" cy="214" r="12" fill="#2a2d33"/><line id="t2" stroke="#f6f1e7" stroke-width="2" stroke-linecap="round"/>
+          <circle id="j2" r="9" fill="#2a2d33"/><line id="t3" stroke="#f6f1e7" stroke-width="2" stroke-linecap="round"/>
+          <circle id="j4" r="6.5" fill="#2a2d33"/><line id="t4" stroke="#f6f1e7" stroke-width="1.6" stroke-linecap="round"/>
+          <!-- J5 roll collar: a marker runs round it as the wrist rolls -->
+          <g id="collar"><rect x="-5" y="-9" width="10" height="18" rx="3" fill="#d9622b" stroke="#2a2d33" stroke-width="1.5"/><rect id="rollmark" x="-5" width="10" height="3" rx="1" fill="#f6f1e7"/></g>
           <line id="palm" stroke="#2a2d33" stroke-width="4" stroke-linecap="round"/>
           <line id="fl" stroke="#2a2d33" stroke-width="4" stroke-linecap="round"/>
           <line id="fr" stroke="#2a2d33" stroke-width="4" stroke-linecap="round"/>
+          <g class="jl" font-family="JetBrains Mono,monospace" font-size="10"><text id="lj1">J1 base</text><text id="lj2">J2 shoulder</text><text id="lj3">J3 elbow</text><text id="lj4">J4 wrist</text><text id="lj5">J5 roll</text></g>
         </svg>
         <div class="deskhint"><span>click a block to open it</span><span id="joints"></span></div>
       </div>
@@ -466,6 +473,7 @@ function makeTile(label){
 }
 function place(o){o.g.setAttribute('transform',`translate(${o.x} ${o.y}) rotate(${o.r} ${o.w/2} ${o.h/2})`)}
 function stackTiles(){tiles.forEach((t,i)=>{if(t===held)return;t.x=ROW0+i*ROWGAP;t.y=DESK-TH;t.r=0;place(t)})}
+const turnTicks=[...Array(6)].map((_,k)=>{const c=document.createElementNS(NS,'circle');c.setAttribute('r',k?1.8:2.6);c.setAttribute('fill',k?'#c9c3b8':'#d9622b');$('ticks').appendChild(c);return c});
 function initTiles(){$('blocks').innerHTML='';tiles=PAGES.map(makeTile);stackTiles()}
 const setA=(id,o)=>{const el=$(id);for(const k in o)el.setAttribute(k,o[k])};
 const WRIST_LIM=100*Math.PI/180;
@@ -489,10 +497,24 @@ function drawArm(){
   const pE=S(E),pW=S([wr,wz]),pT=S(T);
   setA('l1',{x1:SH.x,y1:SH.y,x2:pE[0],y2:pE[1]});setA('l2',{x1:pE[0],y1:pE[1],x2:pW[0],y2:pW[1]});setA('l3',{x1:pW[0],y1:pW[1],x2:pT[0],y2:pT[1]});
   setA('j2',{cx:pE[0],cy:pE[1]});
-  setA('j4',{cx:pW[0],cy:pW[1],rx:6,ry:Math.max(1.5,6*Math.abs(Math.cos(A.roll)))});   // J5: roll shows on the wrist disc
-  setA('yawdot',{cx:SH.x+26*Math.sin(A.yaw),cy:243+6*Math.cos(A.yaw)});
+  setA('j4',{cx:pW[0],cy:pW[1]});
+  // hub ticks point along each child link
+  const tick=(id,o,to,r)=>{const a=Math.atan2(to[1]-o[1],to[0]-o[0]);setA(id,{x1:o[0],y1:o[1],x2:o[0]+r*Math.cos(a),y2:o[1]+r*Math.sin(a)})};
+  tick('t2',[SH.x,SH.y],pE,9);tick('t3',pE,pW,7);
+  // J1: turntable markings rotate with the base, the column shows its side face as it turns
+  turnTicks.forEach((el,k)=>{const th=A.yaw+k*Math.PI/3,front=Math.cos(th);el.setAttribute('cx',SH.x+24*Math.sin(th));el.setAttribute('cy',243+5*front);el.setAttribute('opacity',front>0?(k?.55:1):.18)});
+  const wf=6+16*Math.abs(Math.cos(A.yaw)),ws=12*Math.abs(Math.sin(A.yaw)),x0=SH.x-(wf+ws)/2;
+  if(Math.sin(A.yaw)>=0){setA('col',{x:x0,width:wf});setA('colside',{x:x0+wf,width:ws})}else{setA('colside',{x:x0,width:ws});setA('col',{x:x0+ws,width:wf})}
   // gripper: fingers spread perpendicular to the approach, foreshortened by roll
   const dx=Math.cos(A.phi)*c,dy=Math.sin(A.phi),nx=-Math.sin(A.phi)*c,ny=Math.cos(A.phi);
+  tick('t4',pW,pT,5);
+  // J5: roll collar sits on the last link; its marker travels round as the wrist rolls
+  const la=Math.atan2(pT[1]-pW[1],pT[0]-pW[0])*180/Math.PI,cc=[pW[0]+(pT[0]-pW[0])*.45,pW[1]+(pT[1]-pW[1])*.45];
+  $('collar').setAttribute('transform',`translate(${cc[0]} ${cc[1]}) rotate(${la})`);
+  setA('rollmark',{y:-1.5+7.5*Math.sin(A.roll),opacity:Math.cos(A.roll)>0?1:.25});
+  // joint labels (shown on hover)
+  const lab=(id,p,dx,dy)=>setA(id,{x:p[0]+dx,y:p[1]+dy});
+  lab('lj1',[SH.x,252],34,4);lab('lj2',[SH.x,SH.y],-18,-20);lab('lj3',pE,-12,-16);lab('lj4',pW,-56,-10);lab('lj5',cc,10,16);
   const sp=Math.max(3,A.fing*Math.abs(Math.cos(A.roll)));
   const fA=[pT[0]+nx*sp,pT[1]+ny*sp],fB=[pT[0]-nx*sp,pT[1]-ny*sp];
   setA('palm',{x1:fA[0],y1:fA[1],x2:fB[0],y2:fB[1]});
@@ -514,7 +536,7 @@ function armFollow(){
   if(!idle){const m=$('arm').getScreenCTM();if(!m)return;const p=new DOMPoint(mouse.x,mouse.y).matrixTransform(m.inverse());tx=clamp(p.x,90,470);ty=clamp(p.y,-10,215)}
   const toward=Math.atan2(ty-SH.y,tx-SH.x);
   const reachOut=Math.atan2(1+Math.sin(toward),Math.cos(toward));   // halfway between 'down' and 'toward the cursor', as vectors
-  const T={x:tx,y:ty,phi:idle?Math.PI/2:reachOut,yaw:(idle?.45:.25)*Math.sin(now/(idle?2600:1900)),roll:(idle?.9:.5)*Math.sin(now/1700),fing:OPEN};
+  const T={x:tx,y:ty,phi:idle?Math.PI/2:reachOut,yaw:(idle?.8:.5)*Math.sin(now/(idle?2600:1900)),roll:(idle?1.4:.7)*Math.sin(now/(idle?2200:1700)),fing:OPEN};
   const k=REDUCE?1:.08;for(const key in T)A[key]+=(key==='phi'?wrap(T.phi-A.phi):T[key]-A[key])*k;
   drawArm();showJoints();
 }
@@ -743,6 +765,7 @@ function setMode(f){
 $('toggle').onclick=()=>setMode(!flight());
 let saved=null;try{saved=localStorage.getItem('mode')}catch(e){}
 initTiles();drawArm();showJoints();
+$('arm').classList.add('showjl');setTimeout(()=>$('arm').classList.remove('showjl'),3500);
 setMode(saved!=='plain');
 document.fonts&&document.fonts.ready.then(measure);
 route();
