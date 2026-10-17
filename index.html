@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aayush Bhansali</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Devanagari&family=Noto+Sans+Tamil&family=Noto+Sans+Bengali&family=Noto+Sans+Kannada&family=Noto+Sans+Telugu&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1d1b18; --ink-soft:#5b554c; --accent:#d9622b;
+  --serif:'Instrument Serif',Georgia,serif;
+  --sans:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--sans);color:var(--ink);background:#f3e9d8;-webkit-font-smoothing:antialiased}
+
+/* ---------- toggle + hud ---------- */
+.hud{position:fixed;top:0;left:0;right:0;z-index:20;background:var(--hudbg,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;justify-content:space-between;align-items:center;padding:14px 20px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--hud,#5b554c);pointer-events:none;transition:color .4s}
+.hud .rd{display:flex;gap:18px;flex-wrap:wrap}
+.hud b{font-weight:500;color:var(--hudb,#1d1b18);transition:color .4s}
+.rec{color:#e5533d}
+.rec::before{content:'●';margin-right:4px;animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.toggle{pointer-events:auto;display:flex;align-items:center;gap:8px;background:none;border:0;font:inherit;color:inherit;cursor:pointer;padding:4px}
+.trk{width:36px;height:20px;border-radius:10px;background:#cfc8bb;position:relative;transition:background .3s}
+.trk i{position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .3s}
+body.flight .trk{background:var(--accent)} body.flight .trk i{left:19px}
+
+/* ---------- plain mode ---------- */
+#plain{max-width:560px;margin:0 auto;padding:110px 22px 80px;line-height:1.7}
+#plain h1{font-family:var(--serif);font-weight:400;font-size:40px;margin:0 0 6px}
+#plain p{color:var(--ink-soft);margin:0 0 14px}
+#plain h2{font-size:12px;font-weight:500;font-family:var(--mono);letter-spacing:.06em;color:var(--ink);margin:38px 0 10px}
+#plain ul{list-style:none;padding:0;margin:0}
+#plain li{padding:8px 0;border-bottom:1px solid #e3dccf;display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-size:15px;line-height:1.5}
+#plain li span{color:#7d7468;font-family:var(--mono);font-size:12px;white-space:nowrap}
+#plain a{color:var(--ink)}
+body.flight #plain{display:none}
+body:not(.flight) .flightonly{display:none}
+body:not(.flight){background:#fbf8f2}
+
+/* ---------- sky scene ---------- */
+#sky{position:fixed;inset:0;z-index:0;overflow:hidden}
+.layer{position:absolute;left:0;right:0;top:0;height:100vh;will-change:transform}
+.layer svg{position:absolute;bottom:0;width:100%;height:auto;display:block}
+#stars{opacity:0}
+#stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;animation:tw 3s infinite}
+@keyframes tw{50%{opacity:.25}}
+#sun{position:absolute;width:70px;height:70px;border-radius:50%;background:#f4c86a;right:18%;top:18%;box-shadow:0 0 80px 20px rgba(244,200,106,.35)}
+.cloud{position:absolute;background:#fff;border-radius:999px;opacity:.85;filter:blur(1px)}
+#seaofclouds{opacity:0}
+
+/* ---------- drone ---------- */
+#drone{color:var(--drone,#2a2d33);position:fixed;z-index:5;right:12%;top:38%;width:120px;pointer-events:none;transition:transform .25s ease-out}
+#drone .bob{animation:bob 3s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-10px)}}
+.prop{transform-box:fill-box;transform-origin:center;animation:spin .12s linear infinite}
+@keyframes spin{to{transform:scaleX(-1)}}
+
+/* ---------- scrolling content ---------- */
+main{position:relative;z-index:10}
+section.stop{min-height:110vh;display:flex;align-items:center;padding:0 7vw}
+.card{max-width:470px;color:var(--txt,#1d1b18);transition:color .4s}
+.alt{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--accent);margin-bottom:10px}
+.card h2{font-family:var(--serif);font-weight:400;font-size:clamp(34px,5vw,54px);line-height:1.05;margin:0 0 14px}
+.card p{font-size:16px;line-height:1.7;margin:0 0 12px;color:var(--txt2,#5b554c);transition:color .4s}
+.hint{font-family:var(--mono);font-size:12px;color:var(--accent);margin-top:22px}
+
+.photo{margin-top:20px;width:min(360px,80vw);aspect-ratio:4/3;border-radius:6px;position:relative;overflow:hidden;border:1px dashed var(--line,rgba(0,0,0,.25));display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;color:var(--txt2,#5b554c);background:rgba(255,255,255,.18);backdrop-filter:blur(2px)}
+.photo .exif{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;background:rgba(0,0,0,.55);color:#eee;font-size:10px;transform:translateY(100%);transition:transform .25s}
+.photo:hover .exif{transform:none}
+
+/* greeting + braille */
+#greet{font-family:var(--serif);font-size:clamp(42px,7vw,76px);line-height:1.05;margin:0;min-height:1.2em;transition:opacity .35s}
+#greet.fade,#gcap.fade{opacity:0}
+#gcap{font-family:var(--mono);font-size:11px;color:var(--txt2,#7d7468);margin-top:6px;letter-spacing:.03em;transition:opacity .35s,color .4s}
+.braille{display:inline-flex;gap:10px;margin:14px 0 6px;cursor:default}
+.cell{display:grid;grid-template-columns:repeat(2,9px);grid-template-rows:repeat(3,9px);gap:4px}
+.cell i{width:9px;height:9px;border-radius:50%;background:rgba(0,0,0,.08);transition:transform .25s,background .25s}
+.cell i.on{background:rgba(0,0,0,.18)}
+.braille:hover .cell i.on{background:var(--accent);transform:scale(1.25) translateY(-2px)}
+.bhint{font-family:var(--mono);font-size:10px;color:#9a9184}
+
+/* senses */
+.senses{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
+.sense{border:1px solid var(--line,rgba(0,0,0,.15));border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;color:var(--txt2)}
+.sense b{display:block;font-family:var(--mono);font-weight:500;font-size:11px;color:var(--txt);letter-spacing:.05em;margin-bottom:2px}
+#nose{position:relative;width:150px;height:150px;margin:22px 0 0}
+#nose i{position:absolute;width:12px;height:12px;margin:-6px;border-radius:50%;background:rgba(0,0,0,.12);transition:background .4s,box-shadow .4s}
+#nose i.hit{background:var(--accent);box-shadow:0 0 14px var(--accent);transition:none}
+#nose span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:#9a9184;text-align:center}
+#fx{position:fixed;inset:0;z-index:15;pointer-events:none}
+
+.links{display:flex;gap:18px;margin-top:20px;font-family:var(--mono);font-size:13px}
+.links a{color:var(--txt);text-decoration:none;border-bottom:1px solid var(--accent)}
+
+@media (max-width:640px){
+  #drone{width:80px;right:6%;top:16%}
+  .hud .rd span:nth-child(n+3){display:none}
+  .senses{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body class="flight">
+
+<div class="hud">
+  <div class="rd flightonly">
+    <span>ALT <b id="alt">0</b>m</span>
+    <span id="coord">28.47°N 77.50°E</span>
+    <span>BAT <b id="bat">100</b>%</span>
+    <span class="rec">REC</span>
+  </div>
+  <div class="rd" style="visibility:hidden" id="plainhud">aayush</div>
+  <button class="toggle" id="toggle" aria-label="Switch between plain and flight mode"><span id="mode">flight mode</span><span class="trk"><i></i></span></button>
+</div>
+
+<!-- ================= PLAIN MODE ================= -->
+<article id="plain">
+  <h1>Aayush Bhansali</h1>
+  <p>I'm at Sarvam in Bangalore, working on ___. Before that I studied bioengineering at IIT Mandi, with a semester at RWTH Aachen.</p>
+  <p>Most of what I've built is some way for a machine to sense the world: smell, touch, how people move. Away from screens I take photos, fly drones, and go up mountains when I can.</p>
+  <h2>now</h2>
+  <ul><li>Building ___ at Sarvam <span>2026 –</span></li></ul>
+  <h2>research</h2>
+  <ul>
+    <li>An e-nose that tells apart 18 natural smells, with a tiny neural network <span>IJCNN '25</span></li>
+    <li>Early scoliosis screening from how someone walks, no X-rays <span>2025</span></li>
+    <li>Recognising people by their walk, from IMU, pressure and camera data <span>2024 – 25</span></li>
+    <li>Brain scans as 3D point clouds, read by a language model <span>2025</span></li>
+    <li>How one mutation makes a Parkinson's protein clump together <span>paper</span></li>
+  </ul>
+  <h2>things I've built</h2>
+  <ul>
+    <li>A faster, cheaper braille display using shape-memory wire <span>patent</span></li>
+    <li>Quadrotor control that keeps flying after a motor fails <span>Inter IIT</span></li>
+    <li>A flight controller from scratch on an STM32 <span>2022</span></li>
+    <li>A gesture-controlled robot arm with its own Android app <span>2024</span></li>
+    <li>A line follower that predicts turns before it reaches them <span>2023</span></li>
+    <li>A wearable that nudges you when you slouch <span>2022</span></li>
+  </ul>
+  <h2>places</h2>
+  <ul>
+    <li>Erasmus semester, RWTH Aachen <span>2026</span></li>
+    <li>Kedarkantha, 3,800m, seven days in snow <span>2024</span></li>
+    <li>Sakura Science exchange, Tokyo <span>2023</span></li>
+    <li>IIT Mandi, bioengineering <span>2023 – 27</span></li>
+  </ul>
+  <h2>teaching</h2>
+  <ul><li>Robot-building workshops for kids, first in my neighbourhood, later at IIT Mandi <span>2018 –</span></li></ul>
+  <h2>elsewhere</h2>
+  <p><a href="#">github</a> · <a href="#">linkedin</a> · <a href="#">instagram</a> · <a href="#">email</a></p>
+</article>
+
+<!-- ================= FLIGHT MODE ================= -->
+<div class="flightonly">
+  <div id="sky">
+    <div class="layer" id="stars"></div>
+    <div id="sun"></div>
+    <div class="layer" data-y0="0" data-s="35"><svg viewBox="0 0 1200 400" preserveAspectRatio="none" style="height:55vh"><path d="M0 260 L120 170 L220 220 L330 120 L440 200 L560 90 L690 190 L800 110 L930 210 L1050 140 L1200 220 V400 H0Z" fill="#9fb1c4"/></svg></div>
+    <div class="layer" id="peak" data-y0="-10" data-s="120" style="opacity:0"><svg viewBox="0 0 1200 500" preserveAspectRatio="none" style="height:85vh"><path d="M0 500 L380 300 L560 60 L600 40 L640 70 L820 290 L1200 420 V500Z" fill="#e9eef3"/><path d="M560 60 L600 40 L640 70 L620 110 L600 90 L575 120Z" fill="#fff"/><path d="M0 500 L380 300 L520 220 L470 360 L300 500Z" fill="#c9d3dd"/></svg></div>
+    <div class="layer" data-y0="0" data-s="90"><svg viewBox="0 0 1200 400" preserveAspectRatio="none" style="height:40vh"><path d="M0 300 L150 210 L260 260 L400 170 L520 250 L650 190 L780 260 L900 200 L1050 270 L1200 230 V400 H0Z" fill="#6f8571"/></svg></div>
+    <div class="layer" data-y0="0" data-s="220"><svg viewBox="0 0 1200 300" preserveAspectRatio="none" style="height:22vh"><path d="M0 120 Q300 80 600 110 T1200 100 V300 H0Z" fill="#c8a97e"/><rect x="760" y="70" width="260" height="10" fill="#7a5a3a"/><rect x="790" y="20" width="90" height="50" rx="4" fill="#2d2d2d"/><rect x="905" y="45" width="40" height="25" rx="3" fill="#444"/></svg></div>
+    <div class="layer" id="clouds" data-y0="-120" data-s="260"></div>
+    <div class="layer" id="seaofclouds"><svg viewBox="0 0 1200 300" preserveAspectRatio="none" style="height:30vh"><path d="M0 120 Q80 70 160 110 Q240 60 330 105 Q420 55 520 100 Q610 60 700 105 Q800 50 900 100 Q990 65 1080 105 Q1150 80 1200 100 V300 H0Z" fill="#dfe6f2" opacity=".9"/></svg></div>
+  </div>
+
+  <div id="drone"><div class="bob">
+    <svg viewBox="0 0 120 50" width="100%"><g fill="currentColor"><rect x="45" y="20" width="30" height="12" rx="4"/><rect x="14" y="17" width="92" height="3" rx="1.5"/><rect x="18" y="12" width="3" height="8"/><rect x="99" y="12" width="3" height="8"/><circle cx="60" cy="36" r="4"/></g><ellipse class="prop" cx="19.5" cy="11" rx="15" ry="2" fill="currentColor" opacity=".7"/><ellipse class="prop" cx="100.5" cy="11" rx="15" ry="2" fill="currentColor" opacity=".7"/><circle cx="60" cy="36" r="1.6" fill="#e5533d"/></svg>
+  </div></div>
+
+  <canvas id="fx"></canvas>
+
+  <main>
+    <section class="stop" data-alt="0" data-coord="28.47°N 77.50°E · greater noida">
+      <div class="card">
+        <div class="alt">ALT 0M · THE DESK</div>
+        <h1 id="greet">hey, I'm Aayush.</h1>
+        <div id="gcap">english</div>
+        <div class="braille" id="braille" title="my name, in braille"></div>
+        <div class="bhint">↑ hover me</div>
+        <p style="margin-top:18px">I build things that sense the world, fly drones, and take photos. These days I'm at Sarvam.</p>
+        <div class="hint">scroll to take off ↓</div>
+      </div>
+    </section>
+
+    <section class="stop" data-alt="300" data-coord="28.47°N 77.50°E · greater noida">
+      <div class="card">
+        <div class="alt">ALT 300M · WHERE IT STARTED</div>
+        <h2>soldering irons<br>and line followers</h2>
+        <p>Started with Arduino kits as a kid, ended up running weekend robot workshops for other kids in my neighbourhood. Still the most fun I've had teaching.</p>
+        <div class="photo">[ photo: old robot / desk ]<div class="exif">2018 · phone camera · probably blurry</div></div>
+      </div>
+    </section>
+
+    <section class="stop" id="sensesec" data-alt="1100" data-coord="31.78°N 76.99°E · mandi">
+      <div class="card">
+        <div class="alt">ALT 1,100M · THINGS THAT SENSE</div>
+        <h2>most of what I build<br>is a new kind of sense</h2>
+        <div class="senses">
+          <div class="sense"><b>TOUCH</b>a faster, cheaper braille display</div>
+          <div class="sense"><b>SMELL</b>an e-nose that knows 18 smells</div>
+          <div class="sense"><b>MOTION</b>reading people from how they walk</div>
+          <div class="sense"><b>SIGHT</b>cameras, mostly pointed at mountains</div>
+        </div>
+        <div id="nose"><span>move your<br>cursor here</span></div>
+      </div>
+    </section>
+
+    <section class="stop" data-alt="2000" data-coord="31.78°N 76.99°E · iit mandi">
+      <div class="card">
+        <div class="alt">ALT 2,000M · IIT MANDI</div>
+        <h2>a campus in<br>the mountains</h2>
+        <p>Studied bioengineering, wrote a few papers on brains and noses, and spent Inter IIT trying to keep a quadrotor flying after one of its motors dies.</p>
+        <div class="photo">[ photo: mandi valley ]<div class="exif">f/8 · 1/500s · ISO 100 · 24mm</div></div>
+      </div>
+    </section>
+
+    <section class="stop" data-alt="3800" data-coord="31.02°N 78.17°E · kedarkantha">
+      <div class="card">
+        <div class="alt">ALT 3,800M · KEDARKANTHA</div>
+        <h2>seven days in snow,<br>own pack on my back</h2>
+        <p>January 2024. Cold, slow, and worth every step.</p>
+        <div class="photo">[ photo: summit ]<div class="exif">f/11 · 1/1000s · ISO 100 · −12°C</div></div>
+      </div>
+    </section>
+
+    <section class="stop" data-alt="6000" data-coord="35.68°N 139.69°E · tokyo → aachen">
+      <div class="card">
+        <div class="alt">ALT 6,000M · ABOVE THE CLOUDS</div>
+        <h2>Tokyo, then Aachen</h2>
+        <p>A science exchange in Japan, and a semester at RWTH Aachen. Mostly I remember the trains and the light.</p>
+        <div class="photo">[ photo: aerial / travel ]<div class="exif">drone · 120m · 4k · golden hour</div></div>
+      </div>
+    </section>
+
+    <section class="stop" data-alt="9000" data-coord="12.97°N 77.59°E · bangalore">
+      <div class="card">
+        <div class="alt">ALT 9,000M · NOW</div>
+        <h2>now: building<br>at Sarvam</h2>
+        <p>Working on ___ . If you want to talk about drones, photos, or Indian-language AI, say hi.</p>
+        <div class="links"><a href="#">email</a><a href="#">github</a><a href="#">instagram</a><a href="#">linkedin</a></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* ---------- mode toggle ---------- */
+const body=document.body, modeLbl=document.getElementById('mode');
+function setMode(f){body.classList.toggle('flight',f);if(!f){body.style.background='';document.documentElement.removeAttribute('style')}modeLbl.textContent=f?'flight mode':'plain';try{localStorage.setItem('mode',f?'flight':'plain')}catch(e){}window.scrollTo(0,0);update()}
+document.getElementById('toggle').onclick=()=>setMode(!body.classList.contains('flight'));
+
+/* ---------- greeting in scripts ---------- */
+const greets=[["hey, I'm Aayush.","english"],["नमस्ते, मैं आयुष हूँ।","hindi · hey, I'm Aayush"],["வணக்கம், நான் ஆயுஷ்.","tamil · hey, I'm Aayush"],["নমস্কার, আমি আয়ুষ।","bengali · hey, I'm Aayush"],["ನಮಸ್ಕಾರ, ನಾನು ಆಯುಷ್.","kannada · hey, I'm Aayush"],["నమస్కారం, నేను ఆయుష్.","telugu · hey, I'm Aayush"]];
+let gi=0;const greet=document.getElementById('greet'),gcap=document.getElementById('gcap');
+setInterval(()=>{greet.classList.add('fade');gcap.classList.add('fade');setTimeout(()=>{gi=(gi+1)%greets.length;greet.textContent=greets[gi][0];gcap.textContent=greets[gi][1];greet.classList.remove('fade');gcap.classList.remove('fade')},350)},3000);
+
+/* ---------- braille name ---------- */
+const B={a:[1],y:[1,3,4,5,6],u:[1,3,6],s:[2,3,4],h:[1,2,5]};
+const order=[1,4,2,5,3,6];
+document.getElementById('braille').innerHTML=[...'aayush'].map(c=>'<div class="cell">'+order.map(d=>`<i class="${B[c].includes(d)?'on':''}"></i>`).join('')+'</div>').join('');
+
+/* ---------- clouds + stars ---------- */
+const cl=document.getElementById('clouds');
+for(let i=0;i<14;i++){const c=document.createElement('div');c.className='cloud';const w=120+Math.random()*260;c.style.cssText=`width:${w}px;height:${w*.32}px;left:${Math.random()*100-10}%;top:${Math.random()*100}%`;cl.appendChild(c)}
+const st=document.getElementById('stars');
+for(let i=0;i<90;i++){const s=document.createElement('i');s.style.left=Math.random()*100+'%';s.style.top=Math.random()*70+'%';s.style.animationDelay=Math.random()*3+'s';st.appendChild(s)}
+
+/* ---------- e-nose ring ---------- */
+const nose=document.getElementById('nose'),sensors=[];
+for(let i=0;i<11;i++){const a=i/11*Math.PI*2,s=document.createElement('i');s.style.left=75+62*Math.cos(a)+'px';s.style.top=75+62*Math.sin(a)+'px';nose.appendChild(s);sensors.push(s)}
+
+/* ---------- scent particles ---------- */
+const fx=document.getElementById('fx'),ctx=fx.getContext('2d');let P=[];
+function size(){fx.width=innerWidth*devicePixelRatio;fx.height=innerHeight*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}size();addEventListener('resize',size);
+const sensesec=document.getElementById('sensesec');
+addEventListener('mousemove',e=>{
+  if(!body.classList.contains('flight'))return;
+  const r=sensesec.getBoundingClientRect();if(r.top>innerHeight*.6||r.bottom<innerHeight*.4)return;
+  for(let k=0;k<2;k++)P.push({x:e.clientX,y:e.clientY,vx:(Math.random()-.5)*.8,vy:-.3-Math.random()*.7,life:1,h:[18,35,160,200][Math.random()*4|0]});
+  sensors.forEach(s=>{const b=s.getBoundingClientRect();if(Math.hypot(b.x-e.clientX,b.y-e.clientY)<70){s.classList.add('hit');setTimeout(()=>s.classList.remove('hit'),60)}});
+});
+(function loop(){ctx.clearRect(0,0,innerWidth,innerHeight);P=P.filter(p=>p.life>0);for(const p of P){p.x+=p.vx+Math.sin(p.y/18)*.3;p.y+=p.vy;p.life-=.012;ctx.fillStyle=`hsla(${p.h},70%,55%,${p.life*.5})`;ctx.beginPath();ctx.arc(p.x,p.y,3+(1-p.life)*7,0,7);ctx.fill()}requestAnimationFrame(loop)})();
+
+/* ---------- scroll → altitude ---------- */
+const skyStops=[[0,[243,233,216]],[.18,[205,224,236]],[.45,[143,181,214]],[.65,[96,128,178]],[.82,[40,54,100]],[1,[12,16,32]]];
+function mix(p){for(let i=1;i<skyStops.length;i++){const[a,c1]=skyStops[i-1],[b,c2]=skyStops[i];if(p<=b){const t=(p-a)/(b-a);return c1.map((v,j)=>Math.round(v+(c2[j]-v)*t))}}return skyStops.at(-1)[1]}
+const sky=document.getElementById('sky'),layers=[...document.querySelectorAll('.layer[data-s]')],peak=document.getElementById('peak'),sea=document.getElementById('seaofclouds'),sun=document.getElementById('sun');
+const stops=[...document.querySelectorAll('section.stop')],altEl=document.getElementById('alt'),batEl=document.getElementById('bat'),coordEl=document.getElementById('coord'),drone=document.getElementById('drone');
+let lastY=scrollY;
+function update(){
+  if(!body.classList.contains('flight'))return;
+  const max=document.documentElement.scrollHeight-innerHeight, p=Math.min(1,Math.max(0,scrollY/max));
+  const c=mix(p);sky.style.background=`rgb(${c})`;body.style.background=`rgb(${c})`;
+  layers.forEach(l=>l.style.transform=`translateY(${+l.dataset.y0+p*l.dataset.s}vh)`);
+  peak.style.opacity=Math.max(0,1-Math.abs(p-.55)/.22);
+  sea.style.opacity=Math.min(1,Math.max(0,(p-.68)/.12));sea.style.transform=`translateY(${(1-p)*40}vh)`;
+  st.style.opacity=Math.max(0,(p-.7)/.25);
+  sun.style.transform=`translateY(${p*30}vh)`;sun.style.background=p>.8?'#e8ecf5':'#f4c86a';
+  // altitude: interpolate between section anchors
+  const mid=scrollY+innerHeight/2;let alt=0,cur=stops[0];
+  for(let i=0;i<stops.length;i++){const s=stops[i],top=s.offsetTop+s.offsetHeight/2;if(mid>=top){cur=s;const n=stops[i+1];if(n){const nt=n.offsetTop+n.offsetHeight/2;alt=+s.dataset.alt+(+n.dataset.alt-s.dataset.alt)*Math.min(1,(mid-top)/(nt-top))}else alt=+s.dataset.alt}}
+  altEl.textContent=Math.round(alt).toLocaleString();batEl.textContent=Math.round(100-p*62);coordEl.textContent=cur.dataset.coord;
+  // colours flip once it gets dark
+  const dark=p>.6, r=document.documentElement.style;
+  r.setProperty('--txt',dark?'#eef1f6':'#1d1b18');r.setProperty('--txt2',dark?'#b9c3d3':'#5b554c');r.setProperty('--line',dark?'rgba(255,255,255,.3)':'rgba(0,0,0,.18)');
+  r.setProperty("--drone",dark?"#dfe6f2":"#2a2d33");r.setProperty('--hudbg',`rgba(${c},.55)`);
+  r.setProperty('--hud',dark?'#9fb0c4':'#5b554c');r.setProperty('--hudb',dark?'#fff':'#1d1b18');
+  // drone tilts with scroll speed
+  const v=scrollY-lastY;lastY=scrollY;drone.style.transform=`rotate(${Math.max(-12,Math.min(12,v*.4))}deg)`;
+}
+addEventListener('scroll',()=>requestAnimationFrame(update),{passive:true});
+addEventListener('resize',update);
+setInterval(()=>{drone.style.transform='rotate(0deg)'},300);
+let saved=null;try{saved=localStorage.getItem('mode')}catch(e){}
+setMode(saved!=='plain');
+</script>
+</body>
+</html>
