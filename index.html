@@ -425,6 +425,13 @@ section.stop{min-height:110vh;display:flex;align-items:center;padding:0 6vw}
 </div>
 
 <script>
+/* ---------- analytics (GoatCounter: no cookies, no personal data) ----------
+   Page blocks open as #/name, which GoatCounter doesn't see on its own, so they're counted here.
+   Calls made before the script loads are queued; if an ad blocker stops it, they're simply dropped. */
+const gcQueue=[];
+function gc(path,title,event=false){const v={path,title:title||path,event};window.goatcounter&&window.goatcounter.count?window.goatcounter.count(v):gcQueue.length<50&&gcQueue.push(v)}
+function gcFlush(){while(gcQueue.length&&window.goatcounter&&window.goatcounter.count)window.goatcounter.count(gcQueue.shift())}
+const gcOnce=new Set(),gcEvent=name=>{gc(name,name,true)},gcEventOnce=name=>{if(!gcOnce.has(name)){gcOnce.add(name);gcEvent(name)}};
 const $=id=>document.getElementById(id), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const body=document.body, root=document.documentElement;
 const flight=()=>body.classList.contains('flight');
@@ -589,7 +596,7 @@ function droneHome(){const d=$('drone'),keep=d.style.transform;d.style.transform
 async function throwTile(t){
   if(t.gone||pageOpen||busy||droneBusy)return;
   if(REDUCE){location.hash='#/'+t.label;return}
-  busy=true;droneBusy=true;failing=true;armMode='nav';const cx=t.x+TW/2;
+  busy=true;droneBusy=true;failing=true;armMode='nav';const cx=t.x+TW/2;gcEvent('block-'+t.label);
   // 1. arm picks the block up and raises it
   await moveTo(cx,t.y-60,{phi:Math.PI/2,yaw:0,roll:0,fing:OPEN});
   await moveTo(cx,t.y-4);await moveTo(cx,t.y-4,{fing:SHUT});held=t;
@@ -621,6 +628,7 @@ async function droneReturn(){
 }
 function openPage(name){
   const tpl=$('tpl-'+name);if(!tpl)return;
+  gc('/'+name,name);
   pageOpen=name;$('ptitle').textContent=name;
   const pb=$('pbody');pb.innerHTML='';pb.appendChild(tpl.content.cloneNode(true));
   pb.insertAdjacentHTML('beforeend','<nav class="pnav">'+PAGES.filter(p=>p!==name).map(p=>`<a href="#/${p}">${p}</a>`).join('')+'</nav>');
@@ -700,7 +708,7 @@ function showPop(d,el){
   pop.style.left=x+'px';pop.style.top=y+'px';pop.classList.add('on');
 }
 function hidePop(){$('pop').classList.remove('on')}
-function openMap(from){
+function openMap(from){gcEvent('map-open');
   mapOpen=true;const mf=$('mapfull'),r=from.getBoundingClientRect();
   Object.assign(mf.style,{display:'block',left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});
   $('mapcount').textContent=PLACES.length+' places';
@@ -720,7 +728,7 @@ document.querySelectorAll('#mapfull [data-view]').forEach(b=>b.onclick=()=>{mapV
 /* ---------- motor failure (click a propeller) ---------- */
 let failing=false;
 document.querySelectorAll('#drone .hit').forEach(h=>h.addEventListener('click',()=>{
-  if(failing)return;failing=true;const side=h.dataset.side,prop=$(side==='l'?'pL':'pR'),fl=document.querySelector('#drone .fail'),al=$('alert');
+  if(failing)return;failing=true;gcEventOnce('motor-failure');const side=h.dataset.side,prop=$(side==='l'?'pL':'pR'),fl=document.querySelector('#drone .fail'),al=$('alert');
   prop.classList.add('dead');al.textContent=`MOTOR ${side==='l'?2:4} FAIL · INDI ENGAGED`;al.className='on';
   if(!REDUCE){fl.classList.remove('l','r');void fl.offsetWidth;fl.classList.add(side)}
   setTimeout(()=>{al.textContent='RECOVERED · 3 MOTORS';al.className='on ok'},1500);
@@ -736,7 +744,7 @@ addEventListener('wheel',()=>cancelAnimationFrame(scrollAnim),{passive:true});
 addEventListener('touchstart',()=>cancelAnimationFrame(scrollAnim),{passive:true});
 const stops=[...document.querySelectorAll('section.stop')];
 const centerOf=s=>clamp(s.offsetTop+s.offsetHeight/2-innerHeight/2,0,root.scrollHeight-innerHeight);
-$('rth').onclick=()=>flyTo(0,3200);
+$('rth').onclick=()=>{gcEventOnce('return-to-home');flyTo(0,3200)};
 
 /* ---------- scroll → altitude (target), scene glides toward it ---------- */
 const skyStops=[[0,[243,233,216]],[600,[214,228,236]],[1500,[170,200,224]],[3000,[130,165,205]],[5000,[90,120,175]],[7500,[40,54,100]],[9000,[18,24,48]],[30000,[5,6,12]]];
@@ -747,7 +755,7 @@ function measure(){
   const mid=scrollY+innerHeight/2;let alt=0;ci=0;
   for(let i=0;i<stops.length;i++){const s=stops[i],top=s.offsetTop+s.offsetHeight/2;if(mid>=top){ci=i;const n=stops[i+1];if(n){const nt=n.offsetTop+n.offsetHeight/2;alt=+s.dataset.alt+(+n.dataset.alt-s.dataset.alt)*Math.min(1,(mid-top)/(nt-top))}else alt=+s.dataset.alt}}
   targetAlt=alt;
-  if(ci!==curIdx){curIdx=ci;$('coord').textContent=stops[ci].dataset.coord}
+  if(ci!==curIdx){curIdx=ci;$('coord').textContent=stops[ci].dataset.coord;if(stops[ci].id==='space')gcEventOnce('space-ending');else if(+stops[ci].dataset.alt===9000)gcEventOnce('reached-9000m')}
 }
 function applyScene(alt){
   const a=Math.min(1,alt/9000),sp=clamp((alt-9000)/25000,0,1),c=skyAt(alt),r=root.style;
@@ -798,7 +806,7 @@ function setMode(f){
   scrollTo(0,0);
   if(f)requestAnimationFrame(measure);
 }
-$('toggle').onclick=()=>setMode(!flight());
+$('toggle').onclick=()=>{setMode(!flight());gcEvent(flight()?'mode-flight':'mode-plain')};
 let saved=null;try{saved=localStorage.getItem('mode')}catch(e){}
 initTiles();q=ik(REST,q);qT=q.slice();drawArm();showJoints();
 $('arm').classList.add('showjl');setTimeout(()=>$('arm').classList.remove('showjl'),3500);
@@ -806,5 +814,6 @@ setMode(saved!=='plain');
 document.fonts&&document.fonts.ready.then(measure);
 route();
 </script>
+<script data-goatcounter="https://aayushbhansali.goatcounter.com/count" async src="//gc.zgo.at/count.js" onload="gcFlush()"></script>
 </body>
 </html>
