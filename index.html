@@ -462,8 +462,15 @@ addEventListener('pointermove',e=>{
 const NS='http://www.w3.org/2000/svg';
 const SH={x:520,y:214},L1=158,L2=142,L3=46,DESK=262;
 const PAGES=['builds','places','log','about'],TW=48,TH=22,ROW0=214,ROWGAP=62,OPEN=31,SHUT=26;  // blocks sit side by side; claw opens just past a block, closes on its edges
-const A={x:420,y:150,phi:Math.PI/2,yaw:0,roll:0,fing:OPEN};   // current pose (tip x/y in svg units)
-let held=null,busy=false,armMode='follow',tiles=[],J=[0,0,0,0,0];
+const WRIST_LIM=100*Math.PI/180;
+const deg=r=>Math.round(r*180/Math.PI),wrap=r=>Math.atan2(Math.sin(r),Math.cos(r));
+/* Joint state q = [J1 base yaw, J2 shoulder (absolute), J3 elbow, J4 wrist pitch, J5 roll], in radians.
+   Every frame: target → IK (solution nearest the current pose) → damped joint controller → forward kinematics → draw. */
+const LIM=[[-.45,.45],[-Math.PI,.3],[-2.8,2.8],[-WRIST_LIM,WRIST_LIM],[-1.2,1.2]];
+const VMAX=[1.2,2.6,3,3.5,2.5],AMAX=24;                     // rad/s and rad/s² limits per joint
+const REST={x:430,y:135,phi:Math.PI/2,yaw:0,roll:0};
+let q=[0,-2.2,1.3,1.0,0],qd=[0,0,0,0,0],qT=q.slice(),fing=OPEN,fingT=OPEN;
+let held=null,busy=false,armMode='follow',tiles=[],J=q,task=null,lastTask=null,tgt=null,rawLast=null;
 function makeTile(label){
   const g=document.createElementNS(NS,'g');g.classList.add('tile');
   g.innerHTML=`<rect width="${TW}" height="${TH}" rx="4" fill="#2a2d33"/><text x="${TW/2}" y="${TH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#f6f1e7" pointer-events="none">${label}</text>`;
@@ -476,70 +483,99 @@ function stackTiles(){tiles.forEach((t,i)=>{if(t===held)return;t.x=ROW0+i*ROWGAP
 const turnTicks=[...Array(6)].map((_,k)=>{const c=document.createElementNS(NS,'circle');c.setAttribute('r',k?1.8:2.6);c.setAttribute('fill',k?'#c9c3b8':'#d9622b');$('ticks').appendChild(c);return c});
 function initTiles(){$('blocks').innerHTML='';tiles=PAGES.map(makeTile);stackTiles()}
 const setA=(id,o)=>{const el=$(id);for(const k in o)el.setAttribute(k,o[k])};
-const WRIST_LIM=100*Math.PI/180;
-const deg=r=>Math.round(r*180/Math.PI),wrap=r=>Math.atan2(Math.sin(r),Math.cos(r));
-function drawArm(){
-  const c=Math.max(.45,Math.cos(A.yaw));                         // J1: turning the base foreshortens the arm
-  const tr=(A.x-SH.x)/c,tz=A.y-SH.y;                              // tip in the arm's own plane
-  const solve=phi=>{
-    let wr=tr-L3*Math.cos(phi),wz=tz-L3*Math.sin(phi);              // wrist centre, from J4's approach angle
-    let d=Math.hypot(wr,wz);const mx=L1+L2-1;if(d>mx){wr*=mx/d;wz*=mx/d;d=mx}if(d<30)d=30;
-    const a=Math.atan2(wz,wr),b=Math.acos(clamp((L1*L1+d*d-L2*L2)/(2*L1*d),-1,1));
-    const e1=[L1*Math.cos(a-b),L1*Math.sin(a-b)],e2=[L1*Math.cos(a+b),L1*Math.sin(a+b)];
-    return{wr,wz,E:e1[1]<e2[1]?e1:e2};                             // elbow up
-  };
-  let{wr,wz,E}=solve(A.phi);
-  // J4 joint limit: the wrist can't fold back over the forearm
-  const fa=Math.atan2(wz-E[1],wr-E[0]),j4=wrap(A.phi-fa);
-  if(Math.abs(j4)>WRIST_LIM){A.phi=fa+Math.sign(j4)*WRIST_LIM;({wr,wz,E}=solve(A.phi))}
-  const T=[wr+L3*Math.cos(A.phi),wz+L3*Math.sin(A.phi)];
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const foreshort=yaw=>Math.max(.45,Math.cos(yaw));             // J1: turning the base foreshortens the arm on screen
+function fk(q){
+  const c=foreshort(q[0]),s=q[1],a2=s+q[2],phi=a2+q[3];
+  const E=[L1*Math.cos(s),L1*Math.sin(s)],W=[E[0]+L2*Math.cos(a2),E[1]+L2*Math.sin(a2)],T=[W[0]+L3*Math.cos(phi),W[1]+L3*Math.sin(phi)];
   const S=([r,z])=>[SH.x+r*c,SH.y+z];
-  const pE=S(E),pW=S([wr,wz]),pT=S(T);
+  return{c,phi,pE:S(E),pW:S(W),pT:S(T)};
+}
+// Analytic IK. Of the two elbow solutions, take the one closest to `ref` (no sudden flips), preferring elbow-up.
+function ik(t,ref){
+  const yaw=clamp(t.yaw,...LIM[0]),c=foreshort(yaw),tr=(t.x-SH.x)/c,tz=t.y-SH.y;
+  const branches=phi=>{
+    let wr=tr-L3*Math.cos(phi),wz=tz-L3*Math.sin(phi),d=Math.hypot(wr,wz);
+    const mx=L1+L2-1;if(d>mx){wr*=mx/d;wz*=mx/d;d=mx}if(d<30)d=30;
+    const a=Math.atan2(wz,wr),b=Math.acos(clamp((L1*L1+d*d-L2*L2)/(2*L1*d),-1,1));
+    return[a-b,a+b].map(s=>{const E=[L1*Math.cos(s),L1*Math.sin(s)],a2=Math.atan2(wz-E[1],wr-E[0]);
+      return{s,e:wrap(a2-s),w:wrap(phi-a2),a2,up:E[1]<0}});
+  };
+  const cost=b=>Math.abs(wrap(b.s-ref[1]))+Math.abs(wrap(b.e-ref[2]))+(b.up?0:4);
+  const pick=phi=>branches(phi).sort((a,b)=>cost(a)-cost(b))[0];
+  let phi=t.phi,b=pick(phi);
+  if(Math.abs(b.w)>WRIST_LIM){phi=b.a2+Math.sign(b.w)*WRIST_LIM;b=pick(phi)}   // J4 limit: wrist can't fold back
+  return[yaw,clamp(b.s,...LIM[1]),clamp(b.e,...LIM[2]),clamp(wrap(phi-(b.s+b.e)),...LIM[3]),clamp(t.roll,...LIM[4])];
+}
+// Critically damped spring per joint, with velocity and acceleration limits: smooth, no overshoot, no jumps.
+function control(dt,wn){
+  for(let i=0;i<5;i++){
+    if(REDUCE){q[i]=qT[i];qd[i]=0;continue}
+    const err=wrap(qT[i]-q[i]),acc=clamp(wn*wn*err-2*wn*qd[i],-AMAX,AMAX);
+    qd[i]=clamp(qd[i]+acc*dt,-VMAX[i],VMAX[i]);q[i]+=qd[i]*dt;
+  }
+  fing+=(fingT-fing)*(REDUCE?1:Math.min(1,dt*14));
+}
+function drawArm(){
+  const{c,phi,pE,pW,pT}=fk(q),yaw=q[0],roll=q[4];
   setA('l1',{x1:SH.x,y1:SH.y,x2:pE[0],y2:pE[1]});setA('l2',{x1:pE[0],y1:pE[1],x2:pW[0],y2:pW[1]});setA('l3',{x1:pW[0],y1:pW[1],x2:pT[0],y2:pT[1]});
-  setA('j2',{cx:pE[0],cy:pE[1]});
-  setA('j4',{cx:pW[0],cy:pW[1]});
-  // hub ticks point along each child link
+  setA('j2',{cx:pE[0],cy:pE[1]});setA('j4',{cx:pW[0],cy:pW[1]});
   const tick=(id,o,to,r)=>{const a=Math.atan2(to[1]-o[1],to[0]-o[0]);setA(id,{x1:o[0],y1:o[1],x2:o[0]+r*Math.cos(a),y2:o[1]+r*Math.sin(a)})};
-  tick('t2',[SH.x,SH.y],pE,9);tick('t3',pE,pW,7);
-  // J1: turntable markings rotate with the base, the column shows its side face as it turns
-  turnTicks.forEach((el,k)=>{const th=A.yaw+k*Math.PI/3,front=Math.cos(th);el.setAttribute('cx',SH.x+24*Math.sin(th));el.setAttribute('cy',243+5*front);el.setAttribute('opacity',front>0?(k?.55:1):.18)});
-  const wf=6+16*Math.abs(Math.cos(A.yaw)),ws=12*Math.abs(Math.sin(A.yaw)),x0=SH.x-(wf+ws)/2;
-  if(Math.sin(A.yaw)>=0){setA('col',{x:x0,width:wf});setA('colside',{x:x0+wf,width:ws})}else{setA('colside',{x:x0,width:ws});setA('col',{x:x0+ws,width:wf})}
-  // gripper: fingers spread perpendicular to the approach, foreshortened by roll
-  const dx=Math.cos(A.phi)*c,dy=Math.sin(A.phi),nx=-Math.sin(A.phi)*c,ny=Math.cos(A.phi);
-  tick('t4',pW,pT,5);
-  // J5: roll collar sits on the last link; its marker travels round as the wrist rolls
+  tick('t2',[SH.x,SH.y],pE,9);tick('t3',pE,pW,7);tick('t4',pW,pT,5);
+  turnTicks.forEach((el,k)=>{const th=yaw+k*Math.PI/3,front=Math.cos(th);el.setAttribute('cx',SH.x+24*Math.sin(th));el.setAttribute('cy',243+5*front);el.setAttribute('opacity',front>0?(k?.55:1):.18)});
+  const wf=6+16*Math.abs(Math.cos(yaw)),ws=12*Math.abs(Math.sin(yaw)),x0=SH.x-(wf+ws)/2;
+  if(Math.sin(yaw)>=0){setA('col',{x:x0,width:wf});setA('colside',{x:x0+wf,width:ws})}else{setA('colside',{x:x0,width:ws});setA('col',{x:x0+ws,width:wf})}
   const la=Math.atan2(pT[1]-pW[1],pT[0]-pW[0])*180/Math.PI,cc=[pW[0]+(pT[0]-pW[0])*.45,pW[1]+(pT[1]-pW[1])*.45];
   $('collar').setAttribute('transform',`translate(${cc[0]} ${cc[1]}) rotate(${la})`);
-  setA('rollmark',{y:-1.5+7.5*Math.sin(A.roll),opacity:Math.cos(A.roll)>0?1:.25});
-  // joint labels (shown on hover)
+  setA('rollmark',{y:-1.5+7.5*Math.sin(roll),opacity:Math.cos(roll)>0?1:.25});
   const lab=(id,p,dx,dy)=>setA(id,{x:p[0]+dx,y:p[1]+dy});
   lab('lj1',[SH.x,252],34,4);lab('lj2',[SH.x,SH.y],-18,-20);lab('lj3',pE,-12,-16);lab('lj4',pW,-56,-10);lab('lj5',cc,10,16);
-  const sp=Math.max(3,A.fing*Math.abs(Math.cos(A.roll)));
+  const dx=Math.cos(phi)*c,dy=Math.sin(phi),nx=-Math.sin(phi)*c,ny=Math.cos(phi),sp=Math.max(3,fing*Math.abs(Math.cos(roll)));
   const fA=[pT[0]+nx*sp,pT[1]+ny*sp],fB=[pT[0]-nx*sp,pT[1]-ny*sp];
   setA('palm',{x1:fA[0],y1:fA[1],x2:fB[0],y2:fB[1]});
   setA('fl',{x1:fA[0],y1:fA[1],x2:fA[0]+dx*14,y2:fA[1]+dy*14});setA('fr',{x1:fB[0],y1:fB[1],x2:fB[0]+dx*14,y2:fB[1]+dy*14});
-  if(held){held.x=pT[0]+dx*(TH/2+4)-TW/2;held.y=pT[1]+dy*(TH/2+4)-TH/2;held.r=deg(A.phi)-90;place(held)}
-  J=[A.yaw,Math.atan2(E[1],E[0]),Math.atan2(wz-E[1],wr-E[0])-Math.atan2(E[1],E[0]),A.phi-Math.atan2(wz-E[1],wr-E[0]),A.roll].map(wrap);
+  if(held){held.x=pT[0]+dx*(TH/2+4)-TW/2;held.y=pT[1]+dy*(TH/2+4)-TH/2;held.r=deg(phi)-90;place(held)}
+  J=q.map(wrap);
 }
-const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-function go(x,y,pose={},speed=1.5,ez=ease){return new Promise(res=>{
-  const f={...A},to={x,y,phi:A.phi,yaw:A.yaw,roll:A.roll,fing:A.fing,...pose};to.phi=f.phi+wrap(to.phi-f.phi);  // turn the short way
-  const ms=Math.max(140,Math.hypot(x-f.x,y-f.y)/speed,Math.abs(to.phi-f.phi)*260),t0=performance.now();
-  (function st(now){const t=clamp((now-t0)/ms,0,1),k=ez(t);for(const key in to)A[key]=f[key]+(to[key]-f[key])*k;drawArm();t<1?requestAnimationFrame(st):res()})(t0)})}
 let lastJ='';
-function showJoints(){const s=J.map((v,i)=>`J${i+1} ${v>=0?'+':'−'}${String(Math.abs(deg(v))).padStart(3,' ')}°`).join('  ');if(s!==lastJ){lastJ=s;$('joints').textContent=s}}
-function armFollow(){
-  if(armMode!=='follow'||scrollY>innerHeight)return;
-  const now=performance.now(),idle=!mouse||now-mouse.t>3500;
-  let tx=430,ty=135;
-  if(!idle){const m=$('arm').getScreenCTM();if(!m)return;const p=new DOMPoint(mouse.x,mouse.y).matrixTransform(m.inverse());tx=clamp(p.x,90,470);ty=clamp(p.y,-10,215)}
-  const toward=Math.atan2(ty-SH.y,tx-SH.x);
-  const reachOut=Math.atan2(1+Math.sin(toward),Math.cos(toward));   // halfway between 'down' and 'toward the cursor', as vectors
-  const T={x:tx,y:ty,phi:idle?Math.PI/2:reachOut,yaw:(idle?.8:.5)*Math.sin(now/(idle?2600:1900)),roll:(idle?1.4:.7)*Math.sin(now/(idle?2200:1700)),fing:OPEN};
-  const k=REDUCE?1:.08;for(const key in T)A[key]+=(key==='phi'?wrap(T.phi-A.phi):T[key]-A[key])*k;
-  drawArm();showJoints();
+function showJoints(){const s=J.map((v,i)=>`J${i+1} ${v>=0?'+':'−'}${String(Math.abs(deg(v))).padStart(3,' ')}°`).join('  ');if(s!==lastJ){lastJ=s;$('joints').textContent=s}}
+// Task-space move used by the pick-up / hand-off sequence: resolves once the claw has settled on the target.
+function moveTo(x,y,pose={}){
+  const cur=fk(q);
+  const t={x,y,phi:task?task.phi:cur.phi,yaw:task?task.yaw:q[0],roll:task?task.roll:q[4],...pose};
+  if('fing' in pose)fingT=pose.fing;
+  armMode='task';
+  return new Promise(res=>{task=lastTask={...t,res,t0:performance.now()}});
 }
+// Follow target: cursor → arm coords, 2px deadband, then a low-pass filter (τ≈120ms) so small jitters don't move the joints.
+function followTarget(dt){
+  const now=performance.now(),idle=!mouse||now-mouse.t>3500;
+  if(idle)return REST;
+  const m=$('arm').getScreenCTM();if(!m)return REST;
+  const p=new DOMPoint(mouse.x,mouse.y).matrixTransform(m.inverse()),raw=[clamp(p.x,90,470),clamp(p.y,-10,215)];
+  if(!rawLast||Math.hypot(raw[0]-rawLast[0],raw[1]-rawLast[1])>2)rawLast=raw;
+  if(!tgt){const c=fk(q).pT;tgt=[c[0],c[1]]}
+  const k=REDUCE?1:1-Math.exp(-dt/.12);tgt[0]+=(rawLast[0]-tgt[0])*k;tgt[1]+=(rawLast[1]-tgt[1])*k;
+  const toward=Math.atan2(tgt[1]-SH.y,tgt[0]-SH.x);
+  return{x:tgt[0],y:tgt[1],phi:Math.atan2(1+Math.sin(toward),Math.cos(toward)),   // halfway between down and toward the cursor
+    yaw:.25*clamp((tgt[0]-300)/170,-1,1),roll:0};                                  // J1 turns gently with where you point; J5 stays level
+}
+let armT=null;
+function armStep(){
+  const now=performance.now(),dt=armT?clamp((now-armT)/1000,0,.05):1/60;armT=now;
+  if(armMode==='follow'&&scrollY>innerHeight)return;
+  let target;
+  if(armMode==='task')target=task||lastTask;                     // between task moves, hold the last pose (e.g. while the drone arrives)
+  else{target=followTarget(dt);fingT=OPEN}
+  qT=ik(target,q);
+  control(dt,armMode==='task'?11:7);
+  drawArm();showJoints();
+  if(armMode==='task'&&task){
+    const tip=fk(q).pT,err=Math.hypot(tip[0]-task.x,tip[1]-task.y),still=Math.max(...qd.map(Math.abs))<.04&&Math.abs(fing-fingT)<.5;
+    if((err<1.2&&still)||now-task.t0>2500){const r=task.res;task=null;r()}
+  }
+}
+function settleFollow(){armMode='follow';task=lastTask=null;tgt=null;rawLast=null}
 
 /* ---------- hand a block to the drone → it flies off with it → page opens ---------- */
 let pageOpen=null,droneBusy=false,droneAway=false,drX=0,drY=0,drR=0;
@@ -555,9 +591,9 @@ async function throwTile(t){
   if(REDUCE){location.hash='#/'+t.label;return}
   busy=true;droneBusy=true;failing=true;armMode='nav';const cx=t.x+TW/2;
   // 1. arm picks the block up and raises it
-  await go(cx,t.y-60,{phi:Math.PI/2,yaw:0,roll:0,fing:OPEN},2.6);
-  await go(cx,t.y-4,{},1.6);await go(cx,t.y-4,{fing:SHUT},2);held=t;
-  await go(HAND.x,HAND.y,{phi:Math.PI/2,yaw:0,roll:0},2.2);
+  await moveTo(cx,t.y-60,{phi:Math.PI/2,yaw:0,roll:0,fing:OPEN});
+  await moveTo(cx,t.y-4);await moveTo(cx,t.y-4,{fing:SHUT});held=t;
+  await moveTo(HAND.x,HAND.y);
   // 2. drone flies down to hover just above the block
   const tr=t.g.getBoundingClientRect(),home=droneHome();
   const tx=tr.left+tr.width/2-home.cx,ty=tr.top-16-home.hook;
@@ -567,8 +603,8 @@ async function throwTile(t){
   Object.assign(c.style,{width:tr.width+'px',height:tr.height+'px',fontSize:Math.max(8,tr.height*.42)+'px'});
   document.querySelector('#drone .bob').appendChild(c);
   held=null;t.gone=true;t.g.style.visibility='hidden';
-  await go(HAND.x,HAND.y,{fing:OPEN},1.5);
-  go(HAND.x+40,HAND.y+60,{},1.4).then(()=>{armMode='follow';busy=false});
+  await moveTo(HAND.x,HAND.y,{fing:OPEN});
+  moveTo(HAND.x+40,HAND.y+60).then(()=>{settleFollow();busy=false});
   await sleep(180);
   // 4. drone leans forward and flies off the top-right of the screen
   const ox=innerWidth-home.r.left+80,oy=-home.r.bottom-120;
@@ -748,7 +784,7 @@ addEventListener('deviceorientation',e=>{if(e.gamma!=null)gyro=e.gamma});
     const v=scrollY-lastY;lastY=scrollY;tilt+=(clamp(v*.5,-14,14)-tilt)*.08;if(Math.abs(tilt)<.01)tilt=0;
     const roll=gyro!=null?clamp(gyro,-45,45):tilt*1.6,rk=roll.toFixed(1)+'|'+Math.round(v)+'|'+tilt.toFixed(2);
     if(rk!==lastRoll){lastRoll=rk;if(!droneBusy){drR=tilt;setDrone()}$('hzg').setAttribute('transform',`rotate(${-roll}) translate(0 ${clamp(v*.3,-6,6)})`)}
-    armFollow();
+    armStep();
   }
   requestAnimationFrame(loop);
 })();
@@ -764,7 +800,7 @@ function setMode(f){
 }
 $('toggle').onclick=()=>setMode(!flight());
 let saved=null;try{saved=localStorage.getItem('mode')}catch(e){}
-initTiles();drawArm();showJoints();
+initTiles();q=ik(REST,q);qT=q.slice();drawArm();showJoints();
 $('arm').classList.add('showjl');setTimeout(()=>$('arm').classList.remove('showjl'),3500);
 setMode(saved!=='plain');
 document.fonts&&document.fonts.ready.then(measure);
