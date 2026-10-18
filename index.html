@@ -29,7 +29,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari&family=Noto+Sans+Tamil&family=Noto+Sans+Bengali&family=Noto+Sans+Kannada&family=Noto+Sans+Telugu&display=swap&text=%20%2C.%E0%A4%81%E0%A4%82%E0%A4%86%E0%A4%A4%E0%A4%A8%E0%A4%AE%E0%A4%AF%E0%A4%B7%E0%A4%B8%E0%A4%B9%E0%A5%81%E0%A5%82%E0%A5%87%E0%A5%88%E0%A5%8D%E0%A5%A4%E0%A6%86%E0%A6%95%E0%A6%A8%E0%A6%AE%E0%A6%AF%E0%A6%B0%E0%A6%B7%E0%A6%B8%E0%A6%BC%E0%A6%BE%E0%A6%BF%E0%A7%81%E0%A7%8D%E0%AE%86%E0%AE%95%E0%AE%A3%E0%AE%A8%E0%AE%A9%E0%AE%AE%E0%AE%AF%E0%AE%B5%E0%AE%B7%E0%AE%BE%E0%AF%81%E0%AF%8D%E0%B0%82%E0%B0%86%E0%B0%95%E0%B0%A8%E0%B0%AE%E0%B0%AF%E0%B0%B0%E0%B0%B7%E0%B0%B8%E0%B0%BE%E0%B1%81%E0%B1%87%E0%B1%8D%E0%B2%86%E0%B2%95%E0%B2%A8%E0%B2%AE%E0%B2%AF%E0%B2%B0%E0%B2%B7%E0%B2%B8%E0%B2%BE%E0%B3%81%E0%B3%8D" rel="stylesheet">
 <style>
 :root{
-  --ink:#1d1b18; --ink-soft:#5b554c; --muted:#7d7468; --accent:#d9622b; --paper:#f6f1e7;
+  --ink:#1d1b18; --ink-soft:#5b554c; --muted:#7d7468; --skymuted:#736a5e; --accent:#d9622b; --paper:#f6f1e7;
   --serif:'Instrument Serif',Georgia,serif;
   --sans:'Inter',system-ui,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,monospace;
@@ -81,13 +81,16 @@ body:not(.flight){background:#fbf8f2}
 @keyframes orbit{to{left:108%;transform:translateY(-60px)}}
 
 /* ---------- drone ---------- */
-#drone{color:var(--drone,#2a2d33);position:fixed;z-index:12;right:16%;top:13%;width:143px;pointer-events:none;will-change:transform}
+#drone{color:var(--drone,#2a2d33);position:fixed;z-index:12;right:16%;top:13%;width:215px;pointer-events:none;will-change:transform}
 #drone .bob{animation:bob 3s ease-in-out infinite}
 @keyframes bob{50%{transform:translateY(-10px)}}
 .prop{transform-box:fill-box;transform-origin:center;animation:spin .12s linear infinite}
 .prop.dead{animation-play-state:paused}
 @keyframes spin{to{transform:scaleX(-1)}}
 #drone .hit{pointer-events:all;cursor:pointer}
+#drone .lic{display:none}#drone.licensed .lic{display:inline}
+.mring{position:fixed;z-index:11;border:1.5px dashed var(--skymuted);border-radius:50%;pointer-events:none;opacity:.5;display:flex;align-items:center;justify-content:center;font:11px var(--mono);color:var(--skymuted);transition:opacity .4s,border-color .25s,color .25s}
+.mring.hot{border-style:solid;border-color:var(--accent);color:var(--accent);opacity:.9}
 #drone .fail{transform-origin:50% 40%}
 #drone .fail.l{animation:failL 1.8s cubic-bezier(.3,.7,.3,1)}
 #drone .fail.r{animation:failR 1.8s cubic-bezier(.3,.7,.3,1)}
@@ -110,16 +113,16 @@ section.stop{min-height:110vh;display:flex;align-items:center;padding:0 6vw}
 #hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:3vw;align-items:center}
 #hero .card{background:transparent;border-color:transparent;padding-left:0}
 #greet{font-family:var(--serif);font-weight:400;font-size:clamp(40px,5.6vw,68px);line-height:1.08;margin:0;min-height:1.15em;transition:opacity .35s}
-#gcap{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.03em;transition:opacity .35s}
+#gcap{font-family:var(--mono);font-size:11px;color:var(--skymuted);margin-top:6px;letter-spacing:.03em;transition:opacity .35s}
 .fade{opacity:0}
 #armwrap{position:relative}
 #arm{width:100%;max-width:620px;display:block;overflow:visible;touch-action:pan-y}
 #arm .tile{cursor:pointer}
 #arm .tile rect{transition:fill .2s}
 #arm .tile:hover rect{fill:var(--accent)}
-.deskhint{font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;padding:4px 6px 0}
+.deskhint{font-family:var(--mono);font-size:10px;color:var(--skymuted);display:flex;justify-content:space-between;padding:4px 6px 0}
 #joints{font-variant-numeric:tabular-nums;white-space:pre}
-#arm .jl text{fill:var(--muted);opacity:0;transition:opacity .25s}
+#arm .jl text{fill:var(--skymuted);opacity:0;transition:opacity .25s}
 #armwrap:hover #arm .jl text,#arm.showjl .jl text{opacity:1}
 
 /* senses */
@@ -134,7 +137,7 @@ section.stop{min-height:110vh;display:flex;align-items:center;padding:0 6vw}
 #nose{position:relative;width:140px;height:140px;margin:18px auto 0}
 #nose i{position:absolute;width:11px;height:11px;margin:-5.5px;border-radius:50%;background:rgba(0,0,0,.12);transition:background .4s,box-shadow .4s}
 #nose i.hit{background:var(--accent);box-shadow:0 0 14px var(--accent);transition:none}
-#nose span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:#9a9184;text-align:center}
+#nose span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--skymuted);text-align:center}
 #fx{position:fixed;inset:0;z-index:15;pointer-events:none}
 .links{display:flex;gap:18px;margin-top:18px;font-family:var(--mono);font-size:13px;flex-wrap:wrap}
 .links a{color:var(--txt);text-decoration:none;border-bottom:1px solid var(--accent)}
@@ -217,7 +220,7 @@ section.stop{min-height:110vh;display:flex;align-items:center;padding:0 6vw}
 #jl li.sel{background:#f0e9dc;color:var(--accent)}
 .jhint{padding:8px 14px;border-top:1px solid #e3dccf;color:var(--muted);font-size:11px}
 /* under the hood */
-.hood{font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 6px 0;max-width:620px}
+.hood{font-family:var(--mono);font-size:11px;color:var(--skymuted);padding:8px 6px 0;max-width:620px}
 .hood summary{cursor:pointer;list-style:none;display:inline-block}
 .hood summary::-webkit-details-marker{display:none}
 .hood summary:hover{color:var(--accent)}
@@ -253,7 +256,7 @@ section.stop{min-height:110vh;display:flex;align-items:center;padding:0 6vw}
 @media (max-width:760px){
   section.stop{padding:0 18px;min-height:100vh}
   #hero{grid-template-columns:1fr;padding-top:80px;padding-bottom:40px;align-content:center}
-  #drone{width:83px;right:6%;top:9%}
+  #drone{width:125px;right:6%;top:9%}
   .hud{padding:8px 14px}
   .hud .rd{gap:12px}
   .hud .rd .hide-sm{display:none}
@@ -316,7 +319,7 @@ section.stop{min-height:110vh;display:flex;align-items:center;padding:0 6vw}
   </div>
 
   <div id="drone"><div class="fail"><div class="bob">
-    <svg viewBox="0 0 120 50" width="100%"><g fill="currentColor"><rect x="45" y="20" width="30" height="12" rx="4"/><rect x="14" y="17" width="92" height="3" rx="1.5"/><rect x="18" y="12" width="3" height="8"/><rect x="99" y="12" width="3" height="8"/><circle cx="60" cy="36" r="4"/></g><ellipse class="prop" id="pL" cx="19.5" cy="11" rx="15" ry="2" fill="currentColor" opacity=".7"/><ellipse class="prop" id="pR" cx="100.5" cy="11" rx="15" ry="2" fill="currentColor" opacity=".7"/><circle cx="60" cy="36" r="1.6" fill="#e5533d"/>
+    <svg viewBox="0 0 120 50" width="100%"><g fill="currentColor"><rect x="45" y="20" width="30" height="12" rx="4"/><rect class="lic" x="45" y="24" width="30" height="3" fill="#d9622b"/><rect x="14" y="17" width="92" height="3" rx="1.5"/><rect x="18" y="12" width="3" height="8"/><rect x="99" y="12" width="3" height="8"/><circle cx="60" cy="36" r="4"/></g><ellipse class="prop" id="pL" cx="19.5" cy="11" rx="15" ry="2" fill="currentColor" opacity=".7"/><ellipse class="prop" id="pR" cx="100.5" cy="11" rx="15" ry="2" fill="currentColor" opacity=".7"/><circle cx="60" cy="36" r="1.6" fill="#e5533d"/>
       <circle class="hit" data-side="l" cx="19.5" cy="12" r="16" fill="transparent"><title>don't click the propeller</title></circle>
       <circle class="hit" data-side="r" cx="100.5" cy="12" r="16" fill="transparent"><title>don't click the propeller</title></circle></svg>
   </div></div></div>
@@ -896,6 +899,12 @@ function measure(){
   targetAlt=alt;
   if(ci!==curIdx){curIdx=ci;$('coord').textContent=stops[ci].dataset.coord;if(stops[ci].id==='space')gcEventOnce('space-ending');else if(+stops[ci].dataset.alt===9000)gcEventOnce('reached-9000m')}
 }
+// WCAG contrast, used to choose text tones that stay readable but soft (no pure white)
+const lin=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4},Lum=c=>.2126*lin(c[0])+.7152*lin(c[1])+.0722*lin(c[2]);
+const CR=(a,b)=>{const x=Lum(a),y=Lum(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05)},INK=[29,27,24],SOFT_LIGHT=[225,230,238];
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+// the softest tone between `ext` and the background that still reaches `target` contrast (never harsher than needed)
+function toneFor(bg,ext,target){if(CR(ext,bg)<=target)return ext;let lo=0,hi=1;for(let i=0;i<12;i++){const m=(lo+hi)/2;CR(mix(ext,bg,m),bg)>=target?lo=m:hi=m}return mix(ext,bg,lo)}
 function applyScene(alt){
   const a=Math.min(1,alt/9000),sp=clamp((alt-9000)/25000,0,1),c=skyAt(alt),r=root.style;
   $('sky').style.background=`rgb(${c})`;body.style.background=`rgb(${c})`;
@@ -907,12 +916,18 @@ function applyScene(alt){
   $('sat').style.opacity=sp>.5?1:0;
   $('sun').style.transform=`translate3d(0,${a*26+TOD.dusk*14}vh,0)`;
   $('alt').textContent=alt>=20000?Math.round(alt/1000)+' km':Math.round(alt).toLocaleString()+' m';
-  r.setProperty('--cardbg',`rgba(${c},.82)`);r.setProperty('--hudbg',`rgba(${c},.9)`);r.setProperty('--bgc',`rgb(${c})`);
-  const dark=(.2126*c[0]+.7152*c[1]+.0722*c[2])/255<.42;               // light text whenever the sky behind it is dark
+  r.setProperty('--hudbg',`rgba(${c},.9)`);r.setProperty('--bgc',`rgb(${c})`);
+  const dark=CR(c,SOFT_LIGHT)>CR(c,INK),ext=dark?SOFT_LIGHT:INK;       // whichever text tone reads better on this sky
+  const cb=mix(c,dark?[10,12,22]:[252,249,243],.55),card=mix(c,cb,.9);   // cards sit clearly lighter/darker than the sky
+  r.setProperty('--cardbg',`rgba(${cb},.9)`);
+  const ref=alt<700?c:card;                                             // desk text sits on the sky; higher up, text sits on cards
+  const rgb=a=>`rgb(${a})`;
+  r.setProperty('--txt',rgb(toneFor(ref,ext,9)));r.setProperty('--txt2',rgb(toneFor(ref,ext,5.5)));
+  r.setProperty('--skymuted',rgb(toneFor(c,ext,4.2)));r.setProperty('--hud',rgb(toneFor(c,ext,4.5)));r.setProperty('--hudb',rgb(toneFor(c,ext,8)));
   const T0=groundT??24;$('temp').textContent=alt>=20000?'—':Math.round(alt<=11000?T0-6.5*alt/1000:T0-71.5)+'°C';   // (10) ~6.5°C colder per km
   if(dark!==wasDark){wasDark=dark;const night=alt>7000;
-    r.setProperty('--txt',dark?'#eef1f6':'#1d1b18');r.setProperty('--txt2',dark?'#b9c3d3':'#5b554c');r.setProperty('--line',dark?'rgba(255,255,255,.18)':'rgba(0,0,0,.1)');
-    r.setProperty('--hud',dark?'#9fb0c4':'#5b554c');r.setProperty('--hudb',dark?'#fff':'#1d1b18');
+r.setProperty('--line',dark?'rgba(255,255,255,.18)':'rgba(0,0,0,.1)');
+
     r.setProperty('--drone',dark?'#dfe6f2':'#2a2d33');r.setProperty('--trackc',dark?'#dfe6f2':'#2a2620');
     $('sun').style.background=dark?'#e8ecf5':TOD.dusk>.4?'#f0a05a':'#f4c86a';$('sun').style.boxShadow=dark?'0 0 60px 10px rgba(232,236,245,.25)':'0 0 80px 20px rgba(244,200,106,.3)';}
 }
@@ -975,9 +990,10 @@ function startPilot(){
   if(pilot||droneBusy||!flight()||pageOpen)return;pilot=true;droneBusy=true;pv=[0,0];
   $('dpad').hidden=false;$('flybtn').classList.add('on');$('flybtn').textContent='land ✈';
   $('alert').textContent='PILOT · arrows / WASD · esc to land';$('alert').className='on ok';gcEventOnce('pilot');
+  missionStart();
 }
 async function stopPilot(){
-  if(!pilot)return;pilot=false;pkeys={up:0,down:0,left:0,right:0};
+  if(!pilot)return;pilot=false;pkeys={up:0,down:0,left:0,right:0};missionStop();
   $('dpad').hidden=true;$('flybtn').classList.remove('on');$('flybtn').textContent='fly ✈';$('alert').className='';
   document.querySelectorAll('#dpad .held').forEach(b=>b.classList.remove('held'));
   const r0=drR;await flyDrone(0,0,REDUCE?0:900,ease,k=>r0*(1-k));drR=0;setDrone();droneBusy=false;
@@ -989,6 +1005,41 @@ function pilotStep(dt){
   const minX=-h.left+8,maxX=innerWidth-h.right-8,minY=-h.top+44,maxY=innerHeight-h.bottom-8;
   if(x<minX||x>maxX){x=clamp(x,minX,maxX);pv[0]=0}if(y<minY||y>maxY){y=clamp(y,minY,maxY);pv[1]=0}
   drX=x;drY=y;drR=clamp(pv[0]*.025,-25,25);setDrone();
+  missionStep(dt);
+}
+// Flight school: quiet easter egg on desktop. Fly for a moment and a faint ring appears.
+// Level 1: hold the drone in the ring for 3 s. Level 2: fly through three numbered waypoints (timed, best kept).
+const MISSIONS_OK=matchMedia('(min-width:761px) and (pointer:fine)').matches;
+let ms={lvl:0,best:null},mRings=[],mHold=0,mNext=0,mT0=0,mTimer=null;
+try{ms={...ms,...JSON.parse(localStorage.getItem('flightschool')||'{}')}}catch(e){}
+if(ms.lvl>=2)$('drone').classList.add('licensed');
+const saveMs=()=>{try{localStorage.setItem('flightschool',JSON.stringify(ms))}catch(e){}};
+function ring(x,y,r,label){const d=document.createElement('div');d.className='mring';Object.assign(d.style,{left:x-r+'px',top:y-r+'px',width:2*r+'px',height:2*r+'px'});d.textContent=label;document.body.appendChild(d);return{d,x,y,r}}
+function clearRings(){mRings.forEach(o=>o.d.remove());mRings=[]}
+function missionStart(){if(!MISSIONS_OK)return;clearTimeout(mTimer);mTimer=setTimeout(()=>{if(pilot)setupLevel()},2500)}
+function missionStop(){clearTimeout(mTimer);clearRings()}
+function setupLevel(){
+  clearRings();mHold=0;mNext=0;const W=innerWidth,H=innerHeight;
+  if(ms.lvl===0)mRings=[ring(W*.34,H*.42,46,'')];
+  else mRings=[ring(W*.2,H*.6,36,'1'),ring(W*.48,H*.28,36,'2'),ring(W*.74,H*.62,36,'3')];
+}
+function missionStep(dt){
+  if(!mRings.length)return;const r=$('drone').getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height*.55;
+  if(ms.lvl===0){
+    const o=mRings[0],inside=Math.hypot(cx-o.x,cy-o.y)<o.r-6;o.d.classList.toggle('hot',inside);
+    if(inside){mHold+=dt;o.d.textContent=String(Math.max(1,3-Math.floor(mHold)));if(mHold>=3)missionDone(1,'hover held · now fly the waypoints 1 → 3')}
+    else{mHold=0;o.d.textContent=''}
+  }else{
+    const o=mRings[mNext];if(!o)return;mRings.forEach((x,i)=>{if(!x.d.classList.contains('hot'))x.d.style.opacity=i===mNext?'.85':'.25'});
+    if(Math.hypot(cx-o.x,cy-o.y)<o.r){if(mNext===0)mT0=performance.now();o.d.classList.add('hot');mNext++;
+      if(mNext===mRings.length){const t=(performance.now()-mT0)/1000;ms.best=ms.best?Math.min(ms.best,t):t;missionDone(2,`flight school done · ${t.toFixed(1)}s · best ${ms.best.toFixed(1)}s`)}}
+  }
+}
+function missionDone(lvl,msg){
+  ms.lvl=Math.max(ms.lvl,lvl);saveMs();gcEventOnce('mission-'+lvl);clearRings();
+  $('alert').textContent=msg.toUpperCase();$('alert').className='on ok';
+  if(lvl===2)$('drone').classList.add('licensed');                                     // reward: an orange stripe on the drone
+  clearTimeout(mTimer);mTimer=setTimeout(()=>{if(!pilot)return;$('alert').textContent='PILOT · arrows / WASD · esc to land';setupLevel()},2600);
 }
 $('flybtn').onclick=()=>pilot?stopPilot():startPilot();
 $('land').onclick=()=>stopPilot();
