@@ -62,7 +62,7 @@ body:not(.flight){background:#fbf8f2}
 @keyframes orbit{to{left:108%;transform:translateY(-60px)}}
 
 /* ---------- drone ---------- */
-#drone{color:var(--drone,#2a2d33);position:fixed;z-index:12;right:16%;top:13%;width:110px;pointer-events:none;will-change:transform}
+#drone{color:var(--drone,#2a2d33);position:fixed;z-index:12;right:16%;top:13%;width:143px;pointer-events:none;will-change:transform}
 #drone .bob{animation:bob 3s ease-in-out infinite}
 @keyframes bob{50%{transform:translateY(-10px)}}
 .prop{transform-box:fill-box;transform-origin:center;animation:spin .12s linear infinite}
@@ -180,7 +180,7 @@ section.stop{min-height:110vh;display:flex;align-items:center;padding:0 6vw}
 @media (max-width:760px){
   section.stop{padding:0 18px;min-height:100vh}
   #hero{grid-template-columns:1fr;padding-top:80px;padding-bottom:40px;align-content:center}
-  #drone{width:64px;right:6%;top:9%}
+  #drone{width:83px;right:6%;top:9%}
   .hud{padding:8px 14px}
   .hud .rd{gap:12px}
   .hud .rd .hide-sm{display:none}
